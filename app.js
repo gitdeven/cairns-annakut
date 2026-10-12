@@ -544,6 +544,9 @@ async function submitForm() {
             selectedItems.forEach(itemId => {
                 const item = allItems.find(x => x.id === itemId);
                 params.append("selectedItems", item ? item.item_name : itemId);
+                params.append("selectedCategories", item ? item.category : "");
+                params.append("selectedTypes", item ? item.item_type : "");
+                params.append("selectedQuantities", item ? item.qty_per_thaal : "");
             });
 
             const backendResponse = await fetch(BACKEND_URL, {
@@ -567,9 +570,8 @@ async function submitForm() {
     markSelectedItemsUnavailable(selectedItems);
     renderItems(allItems.filter(item => item.available));
     exportToExcel(rows);
-    exportUpdatedCsv();
 
-    alert("Jai Swaminarayan\n\nThank you for offering Annakut Seva.\n\nYour Excel submission file and the updated menu CSV have been downloaded for saving into OneDrive.");
+    alert("Jai Swaminarayan\n\nThank you for offering Annakut Seva.\n\nYour Excel submission file has been downloaded.");
 
     selectedItemIds = [];
     updateSelectedItems();
