@@ -8,7 +8,7 @@ let selectedTypes = [];
 
 const DATA_FILE = "./cairns-items.csv";
 const CENTRE_NAME = "Cairns";
-const BACKEND_URL = "https://script.google.com/macros/s/AKfycbz2yJ4UnHoiifBIUmaAFgGFxBfDvwEg5pruWC3R6RuKysY941vOE5NjdebngHtS6lSz-w/exec";
+const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyjQcSrcWFu0HhLXJoWPxRMnWRDWMZ7f3aXEfFOoIk0zoMKiYlD6GJa1FhmpvXQ1ZVeZQ/exec";
 
 function normalizeBoolean(value) {
     if (typeof value === "string") {
@@ -166,9 +166,11 @@ async function loadItems() {
                 .filter(item => item.item_name && item.available !== false);
         }
 
+        selectedItemIds = selectedItemIds.filter(itemId => allItems.some(item => item.id === itemId));
         populateCategories();
         populateItemTypes();
         renderItems(allItems);
+        updateSelectedItems();
     } catch (error) {
         console.error(error);
         document.getElementById("items").innerHTML = "Unable to load items.";
@@ -527,27 +529,27 @@ async function submitForm() {
         return;
     }
 
-    markSelectedItemsUnavailable(selectedItems);
-
     const rows = buildExcelRows(name, phone, email, selectedItems, additional);
 
     if (BACKEND_URL && BACKEND_URL !== "PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE") {
         try {
+            const params = new URLSearchParams();
+            params.append("action", "submitAllocation");
+            params.append("centre", CENTRE_NAME);
+            params.append("name", name);
+            params.append("phone", phone);
+            params.append("email", email);
+            params.append("additional", additional || "");
+
+            selectedItems.forEach(itemId => {
+                const item = allItems.find(x => x.id === itemId);
+                params.append("selectedItems", item ? item.item_name : itemId);
+            });
+
             const backendResponse = await fetch(BACKEND_URL, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    action: "submitAllocation",
-                    centre: CENTRE_NAME,
-                    name,
-                    phone,
-                    email,
-                    additional,
-                    selectedItems: selectedItems.map(itemId => {
-                        const item = allItems.find(x => x.id === itemId);
-                        return item ? item.item_name : itemId;
-                    })
-                })
+                headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+                body: params.toString()
             });
 
             const backendResult = await backendResponse.json();
@@ -557,11 +559,13 @@ async function submitForm() {
             }
         } catch (error) {
             console.error(error);
-            alert("The submission was saved locally, but the live sheet update did not finish. Please try again.");
+            alert("The live sheet update did not finish. Your local Excel download still completed.");
             return;
         }
     }
 
+    markSelectedItemsUnavailable(selectedItems);
+    renderItems(allItems.filter(item => item.available));
     exportToExcel(rows);
     exportUpdatedCsv();
 
@@ -583,6 +587,17 @@ async function submitForm() {
 ============================== */
 
 loadItems();
+setInterval(() => {
+    if (document.visibilityState === "visible") {
+        loadItems();
+    }
+}, 30000);
+
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+        loadItems();
+    }
+});
 
 function updateSelectedItems(){
 
